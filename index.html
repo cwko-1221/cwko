@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>常識雲端賽 - 策略版</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        body { font-family: '微軟正黑體', sans-serif; margin: 0; padding: 0; background-color: #f0f3f4; touch-action: none; user-select: none; -webkit-user-select: none; }
+        
+        /* 通用按鈕 */
+        .big-btn { padding: 15px 30px; font-size: 1.2rem; border: none; border-radius: 10px; cursor: pointer; color: white; transition: 0.2s; box-shadow: 0 4px 0 rgba(0,0,0,0.2); }
+        .big-btn:active { transform: translateY(4px); box-shadow: none; }
+        .green-btn { background: #2ecc71; }
+        
+        /* 首頁 */
+        #role-select { display: flex; flex-direction: column; height: 100vh; justify-content: center; align-items: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); gap: 20px; }
+        
+        /* 老師端 */
+        #host-screen { display: none; padding: 20px; background-color: #2c3e50; min-height: 100vh; color: white; }
+        .host-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #34495e; padding-bottom: 10px; }
+        #qr-container { background: white; padding: 10px; border-radius: 10px; }
+        
+        /* 排行榜 */
+        #leaderboard { display: flex; flex-direction: column; gap: 10px; }
+        .rank-card { display: flex; align-items: center; background: #34495e; padding: 10px 20px; border-radius: 10px; position: relative; border: 1px solid #465c71; }
+        .rank-num { font-size: 1.5rem; font-weight: bold; width: 40px; color: #f1c40f; }
+        .rank-avatar { font-size: 2rem; margin-right: 15px; }
+        .rank-info { flex: 1; }
+        .rank-name { font-size: 1.2rem; font-weight: bold; }
+        .rank-score { font-size: 1rem; color: #bdc3c7; }
+        .rank-bar { height: 6px; background: #e74c3c; width: 0%; border-radius: 5px; margin-top: 5px; transition: width 0.5s; }
+
+        /* 學生端 (遊戲) */
+        #client-screen { display: none; height: 100vh; background: #ecf0f1; overflow: hidden; position: relative; }
+        canvas { display: block; margin: 0 auto; background: linear-gradient(to bottom, #87CEEB, #E0F7FA); }
+        
+        #game-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        #score-display { position: absolute; top: 15px; left: 15px; font-size: 1.8rem; font-weight: bold; color: #2c3e50; text-shadow: 2px 2px 0px white; }
+        
+        /* 倒數計時提示 */
+        #quiz-timer-display { position: absolute; top: 15px; right: 15px; font-size: 1.2rem; font-weight: bold; color: #e74c3c; background: rgba(255,255,255,0.8); padding: 5px 10px; border-radius: 15px;}
+
+        /* 控制按鈕區 */
+        #controls { position: absolute; bottom: 0; width: 100%; height: 120px; pointer-events: auto; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box; align-items: center; }
+        .control-btn { width: 90px; height: 90px; background: rgba(0,0,0,0.15); border-radius: 50%; font-size: 2.5rem; border: 2px solid white; color: white; display: flex; justify-content: center; align-items: center; touch-action: manipulation; }
+        .control-btn:active { background: rgba(0,0,0,0.4); transform: scale(0.95); }
+
+        /* 道具按鈕 (改裝版) */
+        #power-btn { 
+            position: absolute; bottom: 140px; right: 20px; width: 70px; height: 70px; 
+            background: #e74c3c; border-radius: 50%; border: 4px solid white; color: white; font-size: 2rem; 
+            display: flex; justify-content: center; align-items: center; pointer-events: auto; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3); transition: 0.3s;
+            
+            /* 預設狀態：灰色、不可點擊 */
+            filter: grayscale(100%);
+            opacity: 0.6;
+            transform: scale(0.9);
+        }
+
+        /* 啟動狀態：紅色、跳動、可點擊 */
+        #power-btn.active {
+            filter: grayscale(0%);
+            opacity: 1;
+            transform: scale(1.1);
+            animation: pulse 1s infinite;
+            cursor: pointer;
+        }
+
+        /* 登入畫面 */
+        #login-box { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 50; 
+            background: rgba(44, 62, 80, 0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 20px;
+        }
+        input { padding: 15px; font-size: 1.3rem; text-align: center; border-radius: 10px; border: none; width: 70%; }
+
+        /* 彈窗 */
+        .overlay { 
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.85); z-index: 100; justify-content: center; align-items: center; flex-direction: column; pointer-events: auto;
+        }
+        .modal-box { background: white; padding: 25px; border-radius: 15px; width: 85%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 5px solid #3498db;}
+        .option-btn { display: block; width: 100%; padding: 15px; margin: 10px 0; background: #3498db; color: white; border: none; border-radius: 8px; font-size: 1.2rem; cursor: pointer; }
+        
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+    </style>
+</head>
+<body>
+
+    <div id="role-select">
+        <h1 style="color:white; font-size: 2.5rem; text-shadow: 0 2px 5px rgba(0,0,0,0.2);">☁️ 常識雲端賽</h1>
+        <button class="big-btn green-btn" onclick="initTeacher()">我是老師 (開啟排行榜)</button>
+        <p style="color:white; opacity: 0.8; margin-top:20px">學生請掃描 QR Code 加入</p>
+    </div>
+
+    <div id="host-screen">
+        <div class="host-header">
+            <div>
+                <h1>🏆 即時排行榜</h1>
+                <h3 style="color:#bdc3c7">房間 ID: <span id="room-id" style="color:#f1c40f">...</span></h3>
+            </div>
+            <div id="qr-container">
+                <div id="qrcode"></div>
+            </div>
+        </div>
+        <div id="leaderboard"></div>
+    </div>
+
+    <div id="client-screen">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="game-ui">
+            <div id="score-display">0 m</div>
+            <div id="quiz-timer-display">下題: 10s</div>
+            
+            <div id="power-btn" onclick="useRocket()">🚀</div>
+            
+            <div id="controls">
+                <button class="control-btn" ontouchstart="inputLeft=true" ontouchend="inputLeft=false" onmousedown="inputLeft=true" onmouseup="inputLeft=false">⬅️</button>
+                <button class="control-btn" ontouchstart="inputRight=true" ontouchend="inputRight=false" onmousedown="inputRight=true" onmouseup="inputRight=false">➡️</button>
+            </div>
+        </div>
+
+        <div id="login-box">
+            <h2 style="color:white">準備起飛！</h2>
+            <div style="font-size:4rem; margin-bottom:10px;" id="avatar-preview">🐵</div>
+            <div style="display:flex; gap:15px; margin-bottom:20px;">
+                <button style="font-size:2rem; background:none; border:none; cursor:pointer" onclick="setAvatar('🐵')">🐵</button>
+                <button style="font-size:2rem; background:none; border:none; cursor:pointer" onclick="setAvatar('🐰')">🐰</button>
+                <button style="font-size:2rem; background:none; border:none; cursor:pointer" onclick="setAvatar('🦊')">🦊</button>
+                <button style="font-size:2rem; background:none; border:none; cursor:pointer" onclick="setAvatar('🐷')">🐷</button>
+            </div>
+            <input type="text" id="username" placeholder="輸入你的名字">
+            <button class="big-btn green-btn" style="margin-top:20px; width: 70%;" onclick="firstStart()">開始遊戲</button>
+        </div>
+
+        <div id="game-over-overlay" class="overlay">
+            <div class="modal-box">
+                <h2 style="color:#e74c3c">😵 掉下來了！</h2>
+                <p style="font-size:1.2rem; color:#34495e">你的高度: <span id="final-score" style="font-weight:bold; font-size:2rem">0</span> m</p>
+                <br>
+                <button class="big-btn green-btn" style="width:100%" onclick="resetGame()">再玩一次 🔄</button>
+            </div>
+        </div>
+
+        <div id="quiz-overlay" class="overlay">
+            <div class="modal-box">
+                <div style="color:#e74c3c; font-weight:bold; margin-bottom:10px;">⚡ 能量補充考核 ⚡</div>
+                <h3 id="q-text" style="color:#2c3e50; margin-bottom:15px">題目載入中...</h3>
+                <div id="q-options"></div>
+            </div>
+        </div>
+    </div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, doc, setDoc, onSnapshot, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    // TODO: 老師請在此替換您的 Firebase Config
+const firebaseConfig = {
+  apiKey: "AIzaSyCpUjL4C66wWr0mP4Xz_g_FvACvjObaUT0",
+  authDomain: "gsmoney-65f2f.firebaseapp.com",
+  projectId: "gsmoney-65f2f",
+  storageBucket: "gsmoney-65f2f.firebasestorage.app",
+  messagingSenderId: "176138167950",
+  appId: "1:176138167950:web:48057a0e2cc89612f30bdf",
+  measurementId: "G-BKB004KPBN"
+};
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // 全局變數
+    let roomId = null;
+    let myId = "p_" + Math.random().toString(36).substr(2, 6);
+    let myAvatar = "🐵";
+    let myName = "";
+    
+    // 檢查網址參數
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('room')) {
+        roomId = urlParams.get('room');
+        initStudentUI();
+    }
+
+    // ================= 老師端邏輯 =================
+    window.initTeacher = () => {
+        document.getElementById('role-select').style.display = 'none';
+        document.getElementById('host-screen').style.display = 'block';
+
+        roomId = Math.floor(1000 + Math.random() * 9000).toString();
+        document.getElementById('room-id').innerText = roomId;
+
+        const url = window.location.href.split('?')[0] + "?room=" + roomId;
+        new QRCode(document.getElementById("qrcode"), { text: url, width: 120, height: 120 });
+
+        const playersRef = collection(db, 'rooms', roomId, 'players');
+        onSnapshot(playersRef, (snapshot) => {
+            const players = [];
+            snapshot.forEach(doc => players.push(doc.data()));
+            players.sort((a, b) => b.score - a.score);
+            updateLeaderboard(players);
+        });
+    };
+
+    function updateLeaderboard(players) {
+        const board = document.getElementById('leaderboard');
+        board.innerHTML = ""; 
+        const maxScore = players.length > 0 ? Math.max(players[0].score, 100) : 100;
+
+        players.forEach((p, index) => {
+            const widthPercent = Math.min((p.score / maxScore) * 100, 100);
+            const card = document.createElement('div');
+            card.className = 'rank-card';
+            card.innerHTML = `
+                <div class="rank-num">${index + 1}</div>
+                <div class="rank-avatar">${p.avatar}</div>
+                <div class="rank-info">
+                    <div style="display:flex; justify-content:space-between;">
+                        <span class="rank-name">${p.name}</span>
+                        <span class="rank-score">${Math.floor(p.score)} m</span>
+                    </div>
+                    <div class="rank-bar" style="width: ${widthPercent}%;"></div>
+                </div>
+            `;
+            board.appendChild(card);
+        });
+    }
+
+    // ================= 學生端邏輯 (遊戲核心) =================
+    
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // 遊戲物理變數
+    let player = { x: 0, y: 0, w: 40, h: 40, vx: 0, vy: 0 };
+    let platforms = [];
+    let cameraY = 0;
+    let score = 0;
+    let isGameOver = false;
+    let isPaused = false;
+    
+    // 策略變數
+    let hasRocket = false; // 是否擁有火箭
+    let quizInterval = null;
+    let quizTimerValue = 10;
+    
+    // 輸入狀態
+    window.inputLeft = false;
+    window.inputRight = false;
+    
+const questions = [
+    {
+        q: "甚麼是「公平測試」的主要目的？ (What is the main purpose of a 'Fair Test'?)",
+        o: ["隨意改變所有因素 (To change all factors randomly)", "驗證某一因素對另一變數的影響 (To verify how one factor affects another variable)", "證明實驗結果一定是正確的 (To prove the experiment result is always correct)", "為了節省實驗時間 (To save experiment time)"],
+        a: 1
+    },
+    {
+        q: "在一個公平測試中，我們只應該改變多少個因素？ (In a fair test, how many factors should we change?)",
+        o: ["0 個 (Zero)", "1 個 (One)", "2 個 (Two)", "全部 (All of them)"],
+        a: 1
+    },
+    {
+        q: "公平測試必須具備的三個要素，不包括下列哪一項？ (Which of the following is NOT one of the three elements of a fair test?)",
+        o: ["只測試一種因素 (Test only one factor)", "量度受影響的變數 (Measure the affected variable)", "使用最昂貴的儀器 (Use the most expensive equipment)", "控制其他因素 (Control other factors)"],
+        a: 2
+    },
+    {
+        q: "為什麼我們要「控制其他因素」？ (Why do we need to 'control other factors'?)",
+        o: ["為了排除這些因素的干擾 (To eliminate interference from these factors)", "為了讓實驗更有趣 (To make the experiment more interesting)", "為了增加實驗的難度 (To increase the difficulty of the experiment)", "為了減少測量的次數 (To reduce the number of measurements)"],
+        a: 0
+    },
+    {
+        q: "科學探究的過程通常是怎樣的？ (What is the usual process of scientific inquiry?)",
+        o: ["測試 -> 觀察 -> 提問 (Testing -> Observation -> Questioning)", "假設 -> 測試 -> 提問 (Hypothesis -> Testing -> Questioning)", "觀察和提問 -> 假設 -> 測試 (Observation & Questioning -> Hypothesis -> Testing)", "測試 -> 假設 -> 觀察 (Testing -> Hypothesis -> Observation)"],
+        a: 2
+    },
+    {
+        q: "在「紙巾和毛巾吸水能力」測試中(第4頁)，為什麼該測試被認為是「不公平」？ (In the absorption test on page 4, why was it considered 'unfair'?)",
+        o: ["使用了不同顏色的水 (Different colored water was used)", "物料的種類不同 (The types of materials were different)", "加入的水滴大小不同 (The size of the water drops added was different)", "紙巾比毛巾便宜 (Paper towels are cheaper than towels)"],
+        a: 2
+    },
+    {
+        q: "如果要修正紙巾吸水實驗使其公平，我們應該控制什麼？ (To fix the paper towel experiment and make it fair, what should we control?)",
+        o: ["確保水滴的大小一致 (Ensure the size of water drops is the same)", "確保不使用水 (Ensure no water is used)", "同時使用兩隻手滴水 (Use two hands to drop water simultaneously)", "不使用滴管 (Do not use a dropper)"],
+        a: 0
+    },
+    {
+        q: "在「水溫對糖溶解速度的影響」實驗中，我們要「測試的因素」(改變的因素)是什麼？ (In the experiment on sugar dissolving speed, what is the 'factor to test'? )",
+        o: ["糖的分量 (Amount of sugar)", "水溫 (Water temperature)", "攪拌的方法 (Method of stirring)", "量杯的大小 (Size of the measuring cup)"],
+        a: 1
+    },
+    {
+        q: "在糖溶解實驗中，我們需要「量度」的變數是什麼？ (In the sugar dissolving experiment, what 'variable' do we need to measure?)",
+        o: ["水溫的變化 (Change in water temperature)", "糖完全溶解的時間 (Time for sugar to dissolve completely)", "糖的重量 (Weight of the sugar)", "水的顏色 (Color of the water)"],
+        a: 1
+    },
+    {
+        q: "下列哪一項是糖溶解實驗中必須「保持不變」的因素？ (Which of the following must be kept 'constant' in the sugar dissolving experiment?)",
+        o: ["水的溫度 (Temperature of water)", "糖溶解的時間 (Time for sugar to dissolve)", "攪拌的方法和力度 (Method and force of stirring)", "實驗開始的時間 (Start time of the experiment)"],
+        a: 2
+    },
+    {
+        q: "如果在做糖溶解實驗時，一杯水有攪拌，另一杯水沒有攪拌，這還是公平測試嗎？ (If one cup is stirred and the other is not, is it still a fair test?)",
+        o: ["是，因為水溫不同 (Yes, because the water temperature is different)", "是，攪拌不影響結果 (Yes, stirring doesn't affect the result)", "不是，因為改變了兩個因素 (No, because two factors were changed)", "不是，因為糖太甜了 (No, because the sugar is too sweet)"],
+        a: 2
+    },
+    {
+        q: "在討論植物為何向窗戶生長時，哪位同學提出的測試方法最全面？ (Which student proposed the most comprehensive test regarding plant growth direction?)",
+        o: ["志文 (Chi Man)", "求珍 (Kau Chun)", "功平 (Kung Ping)", "老師 (The Teacher)"],
+        a: 2
+    },
+    {
+        q: "在植物生長測試中(第10頁)，使用了不同透光度的盒子是為了改變什麼因素？ (In the plant growth test (p.10), boxes with different transparencies were used to change which factor?)",
+        o: ["空氣供應 (Air supply)", "光的強度 (Light intensity)", "泥土的水分 (Soil moisture)", "幼苗的高度 (Height of the seedling)"],
+        a: 1
+    },
+    {
+        q: "植物實驗中，盒子底部的小孔是為了控制什麼因素？ (In the plant experiment, what factor are the holes at the bottom controlling?)",
+        o: ["光線進入 (Light entry)", "空氣供應 (Air supply)", "裝飾 (Decoration)", "方便澆水 (Easy watering)"],
+        a: 1
+    },
+    {
+        q: "在植物實驗中，我們如何量度光的強度對植物的影響？ (In the plant experiment, how do we measure the effect of light intensity?)",
+        o: ["量度泥土的重量 (Measure the weight of the soil)", "量度葉片的大小或生長狀況 (Measure leaf size or growth condition)", "量度盒子的溫度 (Measure the temperature of the box)", "量度澆水的次數 (Count the number of times watered)"],
+        a: 1
+    },
+    {
+        q: "如果測試光對植物的影響時，其中一盆植物忘記澆水，會有什麼後果？ (If one plant is not watered while testing the effect of light, what is the consequence?)",
+        o: ["測試結果更準確 (More accurate test results)", "植物生長得更快 (The plant grows faster)", "無法確定生長差是因為缺光還是缺水 (Cannot determine if poor growth is due to lack of light or water)", "這是公平測試 (This is a fair test)"],
+        a: 2
+    },
+    {
+        q: "切開的蘋果在空氣中放置一段時間後會發生什麼變化？ (What happens to a cut apple after being exposed to air for a while?)",
+        o: ["變紅 (Turns red)", "變褐色 (Turns brown)", "變大 (Gets bigger)", "消失 (Disappears)"],
+        a: 1
+    },
+    {
+        q: "若要測試「檸檬汁能否防止蘋果變色」，最少需要準備多少片蘋果？ (To test 'Can lemon juice prevent apple browning', at least how many apple slices are needed?)",
+        o: ["一片 (One)", "兩片：一片塗檸檬汁，一片不塗 (Two: one with juice, one without)", "不需要蘋果 (No apple needed)", "十片全部塗上 (Ten slices all with juice)"],
+        a: 1
+    },
+    {
+        q: "在公平測試中，「對照組」通常是怎樣的？ (In a fair test, what is the 'Control' group usually like?)",
+        o: ["接受最多變化的處理 (Receives the most changes)", "保持自然狀態或不接受特殊處理 (Stays natural or receives no special treatment)", "隨意處理 (Treated randomly)", "被隱藏起來 (Hidden away)"],
+        a: 1
+    },
+    {
+        q: "公平測試的核心精神是什麼？ (What is the core spirit of a fair test?)",
+        o: ["準確地找出一種因素的影響 (Accurately finding the effect of one factor)", "製造混亂 (Creating chaos)", "隨意猜測 (Random guessing)", "比賽速度 (Competing for speed)"],
+        a: 0
+    }
+];
+
+    function initStudentUI() {
+        document.getElementById('role-select').style.display = 'none';
+        document.getElementById('client-screen').style.display = 'block';
+    }
+
+    window.setAvatar = (char) => {
+        myAvatar = char;
+        document.getElementById('avatar-preview').innerText = char;
+    }
+
+    window.firstStart = async () => {
+        const name = document.getElementById('username').value.trim();
+        if (!name) return alert("請輸入名字");
+        myName = name;
+        document.getElementById('login-box').style.display = 'none';
+        
+        await setDoc(doc(db, 'rooms', roomId, 'players', myId), {
+            name: myName,
+            avatar: myAvatar,
+            score: 0
+        });
+
+        resetGame();
+        requestAnimationFrame(update);
+
+        // 每 1.5 秒上傳分數
+        setInterval(() => {
+            if (!isGameOver && score > 0) {
+                updateDoc(doc(db, 'rooms', roomId, 'players', myId), { score: Math.floor(score) });
+            }
+        }, 1500);
+
+        // 啟動 10秒 循環考核
+        startQuizTimer();
+    };
+
+    function startQuizTimer() {
+        if (quizInterval) clearInterval(quizInterval);
+        quizTimerValue = 10;
+        
+        quizInterval = setInterval(() => {
+            if (isGameOver) return;
+            
+            if (!isPaused) { // 只有在遊戲進行中才倒數
+                quizTimerValue--;
+                document.getElementById('quiz-timer-display').innerText = `下題: ${quizTimerValue}s`;
+                
+                if (quizTimerValue <= 0) {
+                    triggerAutoQuiz(); // 時間到，觸發題目
+                    quizTimerValue = 10;
+                }
+            }
+        }, 1000);
+    }
+
+    window.resetGame = () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        isGameOver = false;
+        isPaused = false;
+        score = 0;
+        cameraY = 0;
+        hasRocket = false; // 重置火箭狀態
+        updateRocketUI();
+        quizTimerValue = 10;
+        
+        document.getElementById('game-over-overlay').style.display = 'none';
+        document.getElementById('score-display').innerText = "0 m";
+
+        player.x = canvas.width / 2 - 20;
+        player.y = canvas.height - 150;
+        player.vx = 0;
+        player.vy = 0;
+
+        platforms = [];
+        platforms.push({ x: 0, y: canvas.height - 50, w: canvas.width, h: 20 }); // 安全地板
+
+        for(let i=1; i<12; i++) {
+            platforms.push({ 
+                x: Math.random() * (canvas.width - 70), 
+                y: canvas.height - 50 - i * 90, 
+                w: 70, h: 15 
+            });
+        }
+        
+        updateDoc(doc(db, 'rooms', roomId, 'players', myId), { score: 0 });
+    };
+
+    function update() {
+        if (isGameOver || isPaused) {
+            requestAnimationFrame(update);
+            return;
+        }
+
+        ctx.fillStyle = "#E0F7FA";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        if (window.inputLeft) player.vx = -4.5;
+        else if (window.inputRight) player.vx = 4.5;
+        else player.vx *= 0.85;
+
+        player.x += player.vx;
+        player.vy += 0.45;
+        player.y += player.vy;
+
+        if (player.x < -30) player.x = canvas.width;
+        if (player.x > canvas.width) player.x = -30;
+
+        if (player.vy > 0) {
+            platforms.forEach(p => {
+                if (
+                    player.x + 20 > p.x && 
+                    player.x + 20 < p.x + p.w &&
+                    player.y + 40 > p.y && 
+                    player.y + 40 < p.y + p.h + 15
+                ) {
+                    player.vy = -11;
+                }
+            });
+        }
+
+        if (player.y < canvas.height / 2) {
+            let diff = (canvas.height / 2) - player.y;
+            player.y = canvas.height / 2;
+            cameraY += diff;
+            score += diff / 10;
+            
+            platforms.forEach(p => p.y += diff);
+            platforms = platforms.filter(p => p.y < canvas.height);
+            
+            while (platforms.length < 12) {
+                platforms.push({
+                    x: Math.random() * (canvas.width - 70),
+                    y: -20 - Math.random() * 60,
+                    w: 70, h: 15
+                });
+            }
+        }
+
+        if (player.y > canvas.height) {
+            showGameOver();
+        }
+
+        ctx.fillStyle = "#27ae60";
+        platforms.forEach(p => {
+            ctx.fillStyle = "#219150"; ctx.fillRect(p.x, p.y+10, p.w, p.h-10);
+            ctx.fillStyle = "#2ecc71"; ctx.fillRect(p.x, p.y, p.w, p.h-5);
+        });
+        
+        ctx.font = "35px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(myAvatar, player.x + 20, player.y + 35);
+
+        document.getElementById('score-display').innerText = Math.floor(score) + " m";
+        requestAnimationFrame(update);
+    }
+
+    function showGameOver() {
+        isGameOver = true;
+        document.getElementById('final-score').innerText = Math.floor(score);
+        document.getElementById('game-over-overlay').style.display = 'flex';
+    }
+
+    // ================= 策略系統 (火箭與問答) =================
+    
+    // 自動彈出題目
+    function triggerAutoQuiz() {
+        isPaused = true; // 暫停遊戲
+        
+        const overlay = document.getElementById('quiz-overlay');
+        const qText = document.getElementById('q-text');
+        const qOptions = document.getElementById('q-options');
+        
+        const q = questions[Math.floor(Math.random() * questions.length)];
+        qText.innerText = q.q;
+        qOptions.innerHTML = '';
+
+        q.o.forEach((opt, idx) => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.innerText = opt;
+            btn.onclick = () => {
+                if (idx === q.a) {
+                    // 答對了
+                    hasRocket = true; // 獲得火箭
+                    updateRocketUI();
+                    isPaused = false; // 恢復遊戲
+                    overlay.style.display = 'none';
+                } else {
+                    // 答錯了
+                    alert("答錯了！沒有獲得火箭。");
+                    isPaused = false;
+                    overlay.style.display = 'none';
+                }
+            };
+            qOptions.appendChild(btn);
+        });
+
+        overlay.style.display = 'flex';
+    }
+
+    // 使用火箭 (點擊按鈕)
+    window.useRocket = () => {
+        if (!hasRocket) return; // 如果沒有火箭，點擊無效
+
+        player.vy = -35; // 飛天
+        hasRocket = false; // 用掉了
+        updateRocketUI();
+    }
+
+    // 更新按鈕樣式
+    function updateRocketUI() {
+        const btn = document.getElementById('power-btn');
+        if (hasRocket) {
+            btn.classList.add('active'); // 變紅、發光
+        } else {
+            btn.classList.remove('active'); // 變灰
+        }
+    }
+
+</script>
+</body>
+</html>
